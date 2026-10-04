@@ -360,6 +360,57 @@ describe('filters/array', function () {
       { students: undefined },
       '0'
     ))
+    it('should not read properties defined on the prototype', () => {
+      class Account {
+        public name: string
+        constructor (name: string) { this.name = name }
+        get internalRank () { return this.name === 'alice' ? 'z' : 'a' }
+      }
+      const list = [new Account('alice'), new Account('bob')]
+      return test(
+        '{{ list | sort_natural: "internalRank" | map: "name" | join }}',
+        { list },
+        'alice bob'
+      )
+    })
+    it('should behave like sort for properties hidden by ownPropertyOnly', () => {
+      class Account {
+        public name: string
+        constructor (name: string) { this.name = name }
+        get internalRank () { return this.name === 'alice' ? 'z' : 'a' }
+      }
+      const list = [new Account('alice'), new Account('bob')]
+      return Promise.all([
+        test('{{ list | sort: "internalRank" | map: "name" | join }}', { list }, 'alice bob'),
+        test('{{ list | sort_natural: "internalRank" | map: "name" | join }}', { list }, 'alice bob')
+      ])
+    })
+    it('should still sort by own properties', () => {
+      class Account {
+        public name: string; public plan: string
+        constructor (name: string, plan: string) { this.name = name; this.plan = plan }
+      }
+      const list = [new Account('alice', 'pro'), new Account('bob', 'free')]
+      return test(
+        '{{ list | sort_natural: "plan" | map: "name" | join }}',
+        { list },
+        'bob alice'
+      )
+    })
+    it('should read prototype properties when ownPropertyOnly is false', async () => {
+      class Account {
+        public name: string
+        constructor (name: string) { this.name = name }
+        get internalRank () { return this.name === 'alice' ? 'z' : 'a' }
+      }
+      const list = [new Account('alice'), new Account('bob')]
+      const permissive = new Liquid({ ownPropertyOnly: false })
+      const html = await permissive.parseAndRender(
+        '{{ list | sort_natural: "internalRank" | map: "name" | join }}',
+        { list }
+      )
+      expect(html).toBe('bob alice')
+    })
   })
   describe('uniq', function () {
     it('should uniq string list', function () {

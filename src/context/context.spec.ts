@@ -183,6 +183,37 @@ describe('Context', function () {
       ctx.push({ foo: Object.create({ bar: 'BAR' }) })
       return expect(() => ctx.getSync(['foo', 'bar'])).toThrow(/undefined variable: foo.bar/)
     })
+    it('should return undefined for a `first` getter defined on the prototype', function () {
+      class Account { name: string; constructor (name: string) { this.name = name } get first () { return `SECRET-first-${this.name}` } }
+      ctx.push({ u: new Account('alice') })
+      return expect(ctx.getSync(['u', 'first'])).toEqual(undefined)
+    })
+    it('should return undefined for a `last` getter defined on the prototype', function () {
+      class Account { name: string; constructor (name: string) { this.name = name } get last () { return `SECRET-last-${this.name}` } }
+      ctx.push({ u: new Account('alice') })
+      return expect(ctx.getSync(['u', 'last'])).toEqual(undefined)
+    })
+    it('should not expose a `size` getter defined on the prototype', function () {
+      class Account {
+        name: string; plan: string
+        constructor (name: string, plan: string) { this.name = name; this.plan = plan }
+        get size () { return `SECRET-size-${this.name}` }
+      }
+      ctx.push({ u: new Account('alice', 'free') })
+      return expect(ctx.getSync(['u', 'size'])).toEqual(2)
+    })
+    it('should keep array/string first/last/size semantics', function () {
+      ctx.push({ list: [{ name: 'alice' }, { name: 'bob' }], str: 'abc' })
+      expect(ctx.getSync(['list', 'first', 'name'])).toEqual('alice')
+      expect(ctx.getSync(['list', 'last', 'name'])).toEqual('bob')
+      expect(ctx.getSync(['list', 'size'])).toEqual(2)
+      expect(ctx.getSync(['str', 'size'])).toEqual(3)
+    })
+    it('should expose prototype getters when ownPropertyOnly is false', function () {
+      class Account { name: string; constructor (name: string) { this.name = name } get first () { return `SECRET-first-${this.name}` } }
+      ctx = new Context({ u: new Account('alice') }, { ownPropertyOnly: false } as any)
+      return expect(ctx.getSync(['u', 'first'])).toEqual('SECRET-first-alice')
+    })
   })
 
   describe('.getAll()', function () {

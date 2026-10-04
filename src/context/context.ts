@@ -3,7 +3,7 @@ import { Drop } from '../drop/drop'
 import { __assign } from 'tslib'
 import { NormalizedFullOptions, defaultOptions, RenderOptions } from '../liquid-options'
 import { Scope } from './scope'
-import { hasOwnProperty, isArray, isNil, isUndefined, isString, isFunction, toLiquid, InternalUndefinedVariableError, toValueSync, isObject, Limiter, toValue } from '../util'
+import { hasOwnProperty, isArray, isNil, isUndefined, isString, isFunction, toLiquid, InternalUndefinedVariableError, toValueSync, isObject, Limiter, toValue, toString } from '../util'
 
 type PropertyKey = string | number;
 
@@ -128,10 +128,17 @@ export class Context {
     const value = readJSProperty(obj, key, this.ownPropertyOnly)
     if (value === undefined && obj instanceof Drop) return obj.liquidMethodMissing(key, this)
     if (isFunction(value)) return value.call(obj)
-    if (key === 'size') return readSize(obj)
+    // `first`/`last` must not leak prototype getters when ownPropertyOnly is on,
+    // except for built-ins like arrays where they provide element access.
+    if (value === undefined && (key === 'first' || key === 'last') &&
+      !this.isOwnOrDrop(obj, key) && !isBuiltinValue(obj)) return value
+    if (key === 'size') return value === undefined ? readSize(obj, this.ownPropertyOnly) : value
     else if (key === 'first') return readFirst(obj)
     else if (key === 'last') return readLast(obj)
     return value
+  }
+  private isOwnOrDrop (obj: Scope, key: PropertyKey) {
+    return !this.ownPropertyOnly || hasOwnProperty.call(obj, key) || obj instanceof Drop
   }
 }
 
@@ -150,8 +157,21 @@ function readLast (obj: Scope) {
   return obj['last']
 }
 
-function readSize (obj: Scope) {
-  if (hasOwnProperty.call(obj, 'size') || obj['size'] !== undefined) return obj['size']
+function readSize (obj: Scope, ownPropertyOnly: boolean) {
   if (isArray(obj) || isString(obj)) return obj.length
-  if (typeof obj === 'object') return Object.keys(obj).length
+  if (isBuiltinCollection(obj)) return obj.size
+  if (typeof obj !== 'object') return
+  if (ownPropertyOnly) return Object.keys(obj).length
+  if (obj['size'] !== undefined) return obj['size']
+  return Object.keys(obj).length
+}
+
+function isBuiltinValue (obj: unknown): boolean {
+  return isArray(obj)
+}
+
+// `size` of built-in collections lives on their prototype but is safe to expose
+function isBuiltinCollection (obj: unknown): obj is Set<unknown> | Map<unknown, unknown> {
+  const tag = toString.call(obj)
+  return tag === '[object Set]' || tag === '[object Map]'
 }
