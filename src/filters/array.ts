@@ -37,14 +37,22 @@ export function * sort<T> (this: FilterImpl, arr: T[], property?: string): Itera
   }).map(tuple => tuple[0])
 }
 
-export function sort_natural<T> (this: FilterImpl, input: T[], property?: string) {
-  const propertyString = stringify(property)
-  const compare = property === undefined
-    ? caseInsensitiveCompare
-    : (lhs: T, rhs: T) => caseInsensitiveCompare(lhs[propertyString], rhs[propertyString])
+export function * sort_natural<T> (this: FilterImpl, input: T[], property?: string): IterableIterator<unknown> {
   const array = toArray(input)
   this.context.memoryLimit.use(array.length)
-  return [...array].sort(compare)
+  if (property === undefined) {
+    return [...array].sort(caseInsensitiveCompare)
+  }
+  const paths = stringify(property).split('.')
+  const values: [T, unknown][] = []
+  for (const item of array) {
+    values.push([
+      item,
+      yield this.context._getFromScope(item, paths, false)
+    ])
+  }
+  return values.sort((lhs, rhs) => caseInsensitiveCompare(lhs[1], rhs[1]))
+    .map(tuple => tuple[0])
 }
 
 export const size = (v: string | any[]) => (v && v.length) || 0

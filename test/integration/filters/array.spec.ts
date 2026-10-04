@@ -360,6 +360,58 @@ describe('filters/array', function () {
       { students: undefined },
       '0'
     ))
+    it('should not read prototype-defined property when sorting', () => {
+      class Account {
+        name: string
+        plan: string
+        constructor (name: string, plan: string) {
+          this.name = name
+          this.plan = plan
+        }
+        get internalRank () { return this.name === 'alice' ? 'z' : 'a' }
+      }
+      const list = [new Account('alice', 'pro'), new Account('bob', 'free')]
+      return test(
+        '{{ list | sort_natural: "internalRank" | map: "name" | join }}',
+        { list },
+        'alice bob'
+      )
+    })
+    it('should sort by own property', () => {
+      class Account {
+        name: string
+        plan: string
+        constructor (name: string, plan: string) {
+          this.name = name
+          this.plan = plan
+        }
+        get internalRank () { return this.name === 'alice' ? 'z' : 'a' }
+      }
+      const list = [new Account('alice', 'pro'), new Account('bob', 'free')]
+      return test(
+        '{{ list | sort_natural: "plan" | map: "name" | join }}',
+        { list },
+        'bob alice'
+      )
+    })
+    it('should read prototype-defined property when ownPropertyOnly=false', () => {
+      class Account {
+        name: string
+        plan: string
+        constructor (name: string, plan: string) {
+          this.name = name
+          this.plan = plan
+        }
+        get internalRank () { return this.name === 'alice' ? 'z' : 'a' }
+      }
+      const list = [new Account('alice', 'pro'), new Account('bob', 'free')]
+      return test(
+        '{{ list | sort_natural: "internalRank" | map: "name" | join }}',
+        { list },
+        'bob alice',
+        { ownPropertyOnly: false }
+      )
+    })
   })
   describe('uniq', function () {
     it('should uniq string list', function () {

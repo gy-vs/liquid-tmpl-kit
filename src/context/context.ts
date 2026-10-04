@@ -128,9 +128,9 @@ export class Context {
     const value = readJSProperty(obj, key, this.ownPropertyOnly)
     if (value === undefined && obj instanceof Drop) return obj.liquidMethodMissing(key, this)
     if (isFunction(value)) return value.call(obj)
-    if (key === 'size') return readSize(obj)
-    else if (key === 'first') return readFirst(obj)
-    else if (key === 'last') return readLast(obj)
+    if (key === 'size') return readSize(obj, this.ownPropertyOnly)
+    else if (key === 'first') return readFirst(obj, this.ownPropertyOnly)
+    else if (key === 'last') return readLast(obj, this.ownPropertyOnly)
     return value
   }
 }
@@ -140,17 +140,24 @@ export function readJSProperty (obj: Scope, key: PropertyKey, ownPropertyOnly: b
   return obj[key]
 }
 
-function readFirst (obj: Scope) {
+function readFirst (obj: Scope, ownPropertyOnly: boolean) {
   if (isArray(obj)) return obj[0]
+  if (ownPropertyOnly && !(obj instanceof Drop) && !hasOwnProperty.call(obj, 'first')) return undefined
   return obj['first']
 }
 
-function readLast (obj: Scope) {
+function readLast (obj: Scope, ownPropertyOnly: boolean) {
   if (isArray(obj)) return obj[obj.length - 1]
+  if (ownPropertyOnly && !(obj instanceof Drop) && !hasOwnProperty.call(obj, 'last')) return undefined
   return obj['last']
 }
 
-function readSize (obj: Scope) {
+function readSize (obj: Scope, ownPropertyOnly: boolean) {
+  if (ownPropertyOnly && !(obj instanceof Drop) && !hasOwnProperty.call(obj, 'size')) {
+    if (obj instanceof Map || obj instanceof Set) return obj.size
+    if (isArray(obj) || isString(obj)) return obj.length
+    if (typeof obj === 'object') return Object.keys(obj).length
+  }
   if (hasOwnProperty.call(obj, 'size') || obj['size'] !== undefined) return obj['size']
   if (isArray(obj) || isString(obj)) return obj.length
   if (typeof obj === 'object') return Object.keys(obj).length

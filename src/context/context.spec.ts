@@ -154,6 +154,63 @@ describe('Context', function () {
       ctx.push({ foo: new Foo() })
       return expect(ctx.getSync(['foo', 'bar'])).toEqual(undefined)
     })
+    it('should not read prototype-defined first getter', function () {
+      class Account {
+        name: string
+        plan: string
+        constructor (name = 'alice', plan = 'pro') {
+          this.name = name
+          this.plan = plan
+        }
+        get first () { return 'SECRET-first' }
+      }
+      ctx.push({ foo: new Account() })
+      return expect(ctx.getSync(['foo', 'first'])).toEqual(undefined)
+    })
+    it('should not read prototype-defined last getter', function () {
+      class Account {
+        name: string
+        plan: string
+        constructor (name = 'alice', plan = 'pro') {
+          this.name = name
+          this.plan = plan
+        }
+        get last () { return 'SECRET-last' }
+      }
+      ctx.push({ foo: new Account() })
+      return expect(ctx.getSync(['foo', 'last'])).toEqual(undefined)
+    })
+    it('should ignore prototype-defined size getter and count own keys', function () {
+      class Account {
+        name: string
+        plan: string
+        constructor (name = 'alice', plan = 'pro') {
+          this.name = name
+          this.plan = plan
+        }
+        get size () { return 'SECRET-size' }
+      }
+      ctx.push({ foo: new Account() })
+      return expect(ctx.getSync(['foo', 'size'])).toEqual(2)
+    })
+    it('should use prototype-defined first/last/size when ownPropertyOnly=false', function () {
+      class Account {
+        name: string
+        plan: string
+        constructor (name = 'alice', plan = 'pro') {
+          this.name = name
+          this.plan = plan
+        }
+        get first () { return 'SECRET-first' }
+        get last () { return 'SECRET-last' }
+        get size () { return 'SECRET-size' }
+      }
+      ctx = new Context({ foo: new Account() }, { ownPropertyOnly: false } as any)
+      expect(ctx.getSync(['foo', 'first'])).toEqual('SECRET-first')
+      expect(ctx.getSync(['foo', 'last'])).toEqual('SECRET-last')
+      expect(ctx.getSync(['foo', 'size'])).toEqual('SECRET-size')
+    })
+
     it('should allow class property', function () {
       class Foo { bar = 'BAR' }
       ctx.push({ foo: new Foo() })
